@@ -120,6 +120,17 @@ class CreatePurchaseOrderRequest(BaseModel):
     expected_delivery_date: str
     notes: Optional[str] = None
 
+class CreateOrderRequest(BaseModel):
+    order_number: str
+    customer: str
+    items: List[dict]
+    status: str
+    order_date: str
+    expected_delivery: str
+    total_value: float
+    warehouse: Optional[str] = None
+    category: Optional[str] = None
+
 # API endpoints
 @app.get("/")
 def root():
@@ -152,6 +163,26 @@ def get_orders(
     filtered_orders = apply_filters(orders, warehouse, category, status)
     filtered_orders = filter_by_month(filtered_orders, month)
     return filtered_orders
+
+@app.post("/api/orders", response_model=Order, status_code=201)
+def create_order(order_request: CreateOrderRequest):
+    """Create a new order and append it to the in-memory orders list"""
+    new_id = str(len(orders) + 1)
+    new_order = {
+        "id": new_id,
+        "order_number": order_request.order_number,
+        "customer": order_request.customer,
+        "items": order_request.items,
+        "status": order_request.status,
+        "order_date": order_request.order_date,
+        "expected_delivery": order_request.expected_delivery,
+        "total_value": order_request.total_value,
+        "actual_delivery": None,
+        "warehouse": order_request.warehouse,
+        "category": order_request.category,
+    }
+    orders.append(new_order)
+    return new_order
 
 @app.get("/api/orders/{order_id}", response_model=Order)
 def get_order(order_id: str):

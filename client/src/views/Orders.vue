@@ -8,6 +8,49 @@
     <div v-if="loading" class="loading">{{ t('common.loading') }}</div>
     <div v-else-if="error" class="error">{{ error }}</div>
     <div v-else>
+      <div v-if="restockingOrders.length > 0" class="card restocking-orders-section">
+        <div class="card-header">
+          <h3 class="card-title">{{ t('restocking.submittedRestockingOrders') }} ({{ restockingOrders.length }})</h3>
+        </div>
+        <div class="table-container">
+          <table class="orders-table">
+            <thead>
+              <tr>
+                <th>{{ t('orders.table.orderNumber') }}</th>
+                <th>{{ t('orders.table.orderDate') }}</th>
+                <th>{{ t('orders.table.items') }}</th>
+                <th>{{ t('orders.table.status') }}</th>
+                <th>{{ t('orders.table.expectedDelivery') }}</th>
+                <th>{{ t('orders.table.totalValue') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="order in restockingOrders" :key="order.id">
+                <td><strong>{{ order.order_number }}</strong></td>
+                <td>{{ formatDate(order.order_date) }}</td>
+                <td>
+                  <details class="items-details">
+                    <summary class="items-summary">{{ order.items.length }} item(s)</summary>
+                    <div class="items-dropdown">
+                      <div v-for="(item, idx) in order.items" :key="idx" class="item-entry">
+                        <span class="item-sku">{{ item.sku }}</span>
+                        <span class="item-name">{{ item.name }}</span>
+                        <span class="item-meta">Qty: {{ item.quantity }} @ {{ currencySymbol }}{{ item.unit_price.toLocaleString() }}</span>
+                      </div>
+                    </div>
+                  </details>
+                </td>
+                <td>
+                  <span class="badge warning">{{ t('status.processing') }}</span>
+                </td>
+                <td>{{ formatDate(order.expected_delivery) }}</td>
+                <td><strong>{{ currencySymbol }}{{ order.total_value.toLocaleString() }}</strong></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <div class="stats-grid">
         <div class="stat-card success">
           <div class="stat-label">{{ t('status.delivered') }}</div>
@@ -29,7 +72,7 @@
 
       <div class="card">
         <div class="card-header">
-          <h3 class="card-title">{{ t('orders.allOrders') }} ({{ orders.length }})</h3>
+          <h3 class="card-title">{{ t('orders.allOrders') }} ({{ regularOrders.length }})</h3>
         </div>
         <div class="table-container">
           <table class="orders-table">
@@ -45,7 +88,7 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="order in orders" :key="order.id">
+              <tr v-for="order in regularOrders" :key="order.id">
                 <td class="col-order-number"><strong>{{ order.order_number }}</strong></td>
                 <td class="col-customer">{{ translateCustomerName(order.customer) }}</td>
                 <td class="col-items">
@@ -94,7 +137,15 @@ export default {
     })
     const loading = ref(true)
     const error = ref(null)
-    const orders = ref([])
+    const allOrders = ref([])
+
+    const regularOrders = computed(() =>
+      allOrders.value.filter(order => order.customer !== 'Internal Restocking')
+    )
+
+    const restockingOrders = computed(() =>
+      allOrders.value.filter(order => order.customer === 'Internal Restocking')
+    )
 
     // Use shared filters
     const {
@@ -112,7 +163,7 @@ export default {
         const fetchedOrders = await api.getOrders(filters)
 
         // Sort orders by order_date (earliest first)
-        orders.value = fetchedOrders.sort((a, b) => {
+        allOrders.value = fetchedOrders.sort((a, b) => {
           const dateA = new Date(a.order_date)
           const dateB = new Date(b.order_date)
           return dateA - dateB
@@ -130,7 +181,7 @@ export default {
     })
 
     const getOrdersByStatus = (status) => {
-      return orders.value.filter(order => order.status === status)
+      return regularOrders.value.filter(order => order.status === status)
     }
 
     const getOrderStatusClass = (status) => {
@@ -159,7 +210,9 @@ export default {
       t,
       loading,
       error,
-      orders,
+      allOrders,
+      regularOrders,
+      restockingOrders,
       getOrdersByStatus,
       getOrderStatusClass,
       formatDate,
@@ -275,5 +328,16 @@ export default {
 .item-meta {
   font-size: 0.813rem;
   color: #64748b;
+}
+
+.item-sku {
+  font-size: 0.8rem;
+  font-family: monospace;
+  color: #64748b;
+}
+
+.restocking-orders-section {
+  border-left: 4px solid #2563eb;
+  margin-bottom: 1.5rem;
 }
 </style>
